@@ -11,25 +11,18 @@ Dependencias:
     pip install torch torchvision scikit-learn pandas pillow tqdm
 """
 
-import argparse
-import json
-from pathlib import Path
-
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
-import torch.optim as optim
+from tqdm import tqdm
 from PIL import Image
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
-from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+from sklearn.metrics import roc_auc_score
+from torch.utils.data import Dataset
 
 SEED     = 42
 IMG_SIZE = 128
 
-# 1. DATASET
+# DATASET
 class QRDataset(Dataset):
     def __init__(self, filepaths: list, labels: list, transform=None):
         self.filepaths = filepaths
@@ -51,7 +44,7 @@ class QRDataset(Dataset):
 
 
 
-# 2. ARQUITECTURA
+# ARQUITECTURA
 class ConvBlock(nn.Module):
     """Conv2d → BatchNorm → ReLU → MaxPool."""
     def __init__(self, in_ch: int, out_ch: int):
@@ -118,12 +111,14 @@ class QRCNN(nn.Module):
 
 
 
-# 3. LOOPS DE ENTRENAMIENTO Y EVALUACIÓN
+# ENTRENAMIENTO Y EVALUACIÓN
 def train_one_epoch(model, loader, criterion, optimizer, device):
     model.train()
     total_loss, correct, total = 0.0, 0, 0
 
-    for imgs, labels in loader:
+    pbar = tqdm(loader, desc="Training", leave=False)
+
+    for imgs, labels in pbar:
         imgs, labels = imgs.to(device), labels.to(device)
 
         optimizer.zero_grad()
@@ -136,8 +131,13 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
         correct    += (logits.argmax(1) == labels).sum().item()
         total      += labels.size(0)
 
-    return total_loss / total, correct / total
+        # actualización en vivo
+        pbar.set_postfix({
+            "loss": f"{loss.item():.4f}",
+            "acc": f"{correct/total:.4f}"
+        })
 
+    return total_loss / total, correct / total
 
 @torch.no_grad()
 def evaluate(model, loader, criterion, device):
@@ -145,8 +145,11 @@ def evaluate(model, loader, criterion, device):
     total_loss, correct, total = 0.0, 0, 0
     all_preds, all_probs, all_labels = [], [], []
 
-    for imgs, labels in loader:
+    pbar = tqdm(loader, desc="Evaluating", leave=False)
+
+    for imgs, labels in pbar:
         imgs, labels = imgs.to(device), labels.to(device)
+
         logits = model(imgs)
         probs  = torch.softmax(logits, dim=1)[:, 1]
 
@@ -158,6 +161,12 @@ def evaluate(model, loader, criterion, device):
         all_probs.extend(probs.cpu().numpy())
         all_labels.extend(labels.cpu().numpy())
 
+        # también feedback en evaluación
+        pbar.set_postfix({
+            "loss": f"{(total_loss/total):.4f}",
+            "acc": f"{(correct/total):.4f}"
+        })
+
     return (
         total_loss / total,
         correct / total,
@@ -166,7 +175,7 @@ def evaluate(model, loader, criterion, device):
         all_labels,
     )
 
-# 5. INFERENCIA EN UNA IMAGEN
+# INFERENCIA EN UNA IMAGEN
 def predict(image_path: str, model_path: str = "outputs/best_model.pt", device: str = "cpu") -> dict:
     """
     Predice si un QR code es malicioso.
@@ -187,7 +196,3 @@ def predict(image_path: str, model_path: str = "outputs/best_model.pt", device: 
         prob = torch.softmax(model(img_t), dim=1)[0, 1].item()
 
     return {"label": "malware" if prob >= 0.5 else "normal", "probability_malware": round(prob, 4)}
-
-
-if __name__ == "__main__":
-    main()
