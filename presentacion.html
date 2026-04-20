@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Malicious QR Detector — Fase 1</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      line-height: 1.6;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(135deg, #1e293b 0%, #2563eb 100%);
+      color: #fff;
+      padding: 3rem 2rem 2.5rem;
+      text-align: center;
+    }
+    header .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 999px;
+      padding: 0.25rem 1rem;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    header h1 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+    header .subtitle {
+      font-size: 1.05rem;
+      opacity: 0.85;
+      margin-bottom: 1.5rem;
+    }
+    .team-chips {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .team-chip {
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 8px;
+      padding: 0.4rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    /* ── LAYOUT ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    section { margin-bottom: 2.5rem; scroll-margin-top: 72px; }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #2563eb;
+      border-left: 4px solid #2563eb;
+      padding-left: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.2rem 1rem;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .stat-card .num {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #2563eb;
+      line-height: 1.1;
+    }
+    .stat-card .lbl {
+      font-size: 0.82rem;
+      color: #64748b;
+      margin-top: 0.3rem;
+    }
+
+    /* ── FINDING CARDS ── */
+    .finding-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .finding-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .finding-card .icon { font-size: 1.4rem; margin-bottom: 0.5rem; }
+    .finding-card h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.3rem; color: #1e293b; }
+    .finding-card p { font-size: 0.85rem; color: #475569; }
+
+    /* ── TABLE ── */
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th {
+      background: #1e293b;
+      color: #fff;
+      padding: 0.6rem 0.9rem;
+      text-align: left;
+      font-weight: 600;
+    }
+    td {
+      padding: 0.55rem 0.9rem;
+      border-bottom: 1px solid #e2e8f0;
+      color: #374151;
+    }
+    tr:nth-child(even) td { background: #f8fafc; }
+    tr:hover td { background: #eff6ff; }
+
+    /* ── FEATURE BAR ── */
+    .feat-bar-wrap { display: flex; flex-direction: column; gap: 0.55rem; }
+    .feat-row { display: flex; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
+    .feat-name { width: 140px; flex-shrink: 0; color: #1e293b; font-weight: 500; }
+    .feat-track { flex: 1; background: #e2e8f0; border-radius: 999px; height: 10px; }
+    .feat-fill { height: 10px; border-radius: 999px; background: #2563eb; }
+    .feat-val { width: 50px; text-align: right; color: #64748b; font-size: 0.8rem; }
+
+    /* ── METRIC COMPARE ── */
+    .metric-compare {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .metric-box {
+      flex: 1;
+      min-width: 200px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.3rem;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+    }
+    .metric-box.highlight { border-color: #2563eb; border-width: 2px; }
+    .metric-box .acc { font-size: 2.2rem; font-weight: 800; color: #2563eb; }
+    .metric-box .std { font-size: 0.85rem; color: #94a3b8; }
+    .metric-box .desc { font-size: 0.82rem; color: #475569; margin-top: 0.4rem; }
+    .metric-box .tag {
+      display: inline-block;
+      background: #eff6ff;
+      color: #2563eb;
+      border-radius: 6px;
+      padding: 0.15rem 0.6rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    .metric-box.highlight .tag { background: #2563eb; color: #fff; }
+
+    /* ── CNN ARCH ── */
+    .arch-layers {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .arch-layer {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.6rem 1rem;
+    }
+    .arch-layer .layer-badge {
+      width: 90px;
+      flex-shrink: 0;
+      background: #1e293b;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .arch-layer .layer-detail { font-size: 0.85rem; color: #475569; }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.75rem;
+    }
+    .config-item {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      font-size: 0.85rem;
+    }
+    .config-item .key { color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .config-item .val { color: #1e293b; font-weight: 600; margin-top: 0.1rem; }
+
+    /* ── CHECKLIST ── */
+    .checklist { display: flex; flex-direction: column; gap: 0.55rem; }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.9rem;
+    }
+    .check-item .ck {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+    .ck.done { background: #dcfce7; color: #16a34a; }
+    .ck.pending { background: #fef9c3; color: #ca8a04; }
+    .check-item .ck-text { padding-top: 0.1rem; }
+    .check-item .ck-text strong { color: #1e293b; }
+    .check-item .ck-text span { color: #64748b; font-size: 0.83rem; }
+
+    /* ── NAV ÍNDICE ── */
+    .toc {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: #1e293b;
+      border-bottom: 2px solid #2563eb;
+      padding: 0.65rem 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .toc h3 { display: none; }
+    .toc ol {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.1rem;
+      padding: 0;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .toc ol li a {
+      display: inline-block;
+      color: rgba(255,255,255,0.75);
+      border-radius: 6px;
+      padding: 0.28rem 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+    .toc ol li a:hover {
+      background: #2563eb;
+      color: #fff;
+    }
+
+    /* ── MODEL EXPLAIN ── */
+    .model-explain {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    .model-explain .card h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 0.6rem;
+    }
+    .model-explain .card p {
+      font-size: 0.87rem;
+      color: #475569;
+      margin-bottom: 0.6rem;
+    }
+    .model-explain .card ul {
+      padding-left: 1.2rem;
+      font-size: 0.86rem;
+      color: #475569;
+    }
+    .model-explain .card ul li { margin-bottom: 0.3rem; }
+    .status-badge {
+      display: inline-block;
+      border-radius: 6px;
+      padding: 0.2rem 0.7rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    .status-done { background: #dcfce7; color: #16a34a; }
+    .status-pending { background: #fef9c3; color: #ca8a04; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: #1e293b;
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.85rem;
+    }
+    footer strong { color: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header>
+  <div class="badge">Data Security — Fase 1 · Abril 2026</div>
+  <h1>🛡️ Malicious QR Code Detector</h1>
+  <p class="subtitle">Sistema de clasificación binaria de códigos QR mediante Machine Learning y Deep Learning</p>
+  <div class="team-chips">
+    <div class="team-chip">Fabiola Contreras — 22787</div>
+    <div class="team-chip">María Villafuerte — 22129</div>
+  </div>
+</header>
+
+<nav class="toc">
+  <h3>Índice</h3>
+  <ol>
+    <li><a href="#objetivo">1. Objetivo</a></li>
+    <li><a href="#dataset">2. Dataset</a></li>
+    <li><a href="#eda">3. Análisis Exploratorio</a></li>
+    <li><a href="#features">4. Ingeniería de Features</a></li>
+    <li><a href="#random-forest">5. Random Forest</a></li>
+    <li><a href="#cnn">6. CNN</a></li>
+    <li><a href="#metricas">7. Métricas Baseline</a></li>
+    <li><a href="#arquitectura">8. Arquitectura CNN</a></li>
+    <li><a href="#estado">9. Estado del Proyecto</a></li>
+  </ol>
+</nav>
+
+<main>
+
+  <!-- ══ OBJETIVO ══ -->
+  <section id="objetivo">
+    <div class="section-title">Objetivo</div>
+    <div class="card">
+      <p>Desarrollar un sistema capaz de clasificar automáticamente imágenes de códigos QR en dos categorías: <strong>benignos</strong> (seguros) y <strong>maliciosos</strong> (potencialmente peligrosos). El sistema combina ingeniería de características tradicional con una red neuronal convolucional (CNN) para aprender patrones espaciales discriminativos que los métodos estadísticos globales no pueden capturar.</p>
+    </div>
+  </section>
+
+  <!-- ══ DATASET ══ -->
+  <section id="dataset">
+    <div class="section-title">Dataset</div>
+    <div class="card-grid">
+      <div class="stat-card">
+        <div class="num">200 K</div>
+        <div class="lbl">Imágenes PNG totales</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">50/50</div>
+        <div class="lbl">Balance de clases (benigno / malicioso)</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">140 K</div>
+        <div class="lbl">Imágenes de entrenamiento</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">30 K</div>
+        <div class="lbl">Imágenes de validación</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">30 K</div>
+        <div class="lbl">Imágenes de prueba</div>
+      </div>
+      <div class="stat-card">
+        <div class="num">407 px</div>
+        <div class="lbl">Resolución media (cuadrada)</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem; font-size:0.88rem; color:#475569;">
+      <strong>Fuente:</strong> Kaggle — "Benign and Malicious QR Codes" &nbsp;·&nbsp;
+      <strong>Calidad:</strong> 0 valores nulos · 0 duplicados · 0 archivos corruptos &nbsp;·&nbsp;
+      <strong>Modo:</strong> Escala de grises (L)
+    </div>
+  </section>
+
+  <!-- ══ EDA ══ -->
+  <section id="eda">
+    <div class="section-title">Análisis Exploratorio — Hallazgos Clave</div>
+    <div class="finding-grid">
+      <div class="finding-card">
+        <div class="icon">⚖️</div>
+        <h4>Balance perfecto de clases</h4>
+        <p>Distribución exacta 50/50 (100 K por clase). No se requiere SMOT ni ponderación de clases. La exactitud (accuracy) es una métrica confiable.</p>
+      </div>
+      <div class="finding-card">
+        <div class="icon">📐</div>
+        <h4>Dimensiones no discriminativas</h4>
+        <p>El 92% de las imágenes mide 410×410 px. La diferencia de media entre clases es &lt;2 px. Las dimensiones no aportan poder predictivo.</p>
+      </div>
+      <div class="finding-card">
+        <div class="icon">💾</div>
+        <h4>Tamaño de archivo: diferencia marginal</h4>
+        <p>Test Mann-Whitney U: p ≈ 0.0000 (significativo). Media: ~928 bytes. A pesar del valor-p, la separación práctica entre clases es mínima.</p>
+      </div>
+      <div class="finding-card">
+        <div class="icon">🎨</div>
+        <h4>Estadísticas globales de píxeles insuficientes</h4>
+        <p>Valor medio: Malware 149.60 vs Normal 148.56 (diferencia de 1 unidad). Desviación estándar prácticamente igual. Los histogramas globales no separan las clases.</p>
+      </div>
+      <div class="finding-card">
+        <div class="icon">🔍</div>
+        <h4>Separación no-lineal en espacio de features</h4>
+        <p>La proyección PCA 2D muestra superposición significativa entre clases. Las clases <em>no son linealmente separables</em>, lo que justifica el uso de CNN.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ FEATURE ENGINEERING ══ -->
+  <section id="features">
+    <div class="section-title">Ingeniería y Selección de Features</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; flex-wrap:wrap;">
+
+      <!-- Tabla categorías -->
+      <div class="card" style="overflow-x:auto;">
+        <h4 style="margin-bottom:0.75rem; font-size:0.95rem; color:#1e293b;">34 Features Extraídas</h4>
+        <table>
+          <thead>
+            <tr><th>Categoría</th><th>Features</th><th>Cant.</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Estadísticas globales</td><td>mean, std, dark_ratio, skewness, kurtosis</td><td>5</td></tr>
+            <tr><td>Entropía</td><td>entropy</td><td>1</td></tr>
+            <tr><td>Coeficientes DCT</td><td>dct_h_0…4, dct_v_0…4</td><td>10</td></tr>
+            <tr><td>Patrones LBP</td><td>lbp_0…9</td><td>10</td></tr>
+            <tr><td>Análisis por cuadrante</td><td>q_tl/tr/bl/br_mean/std</td><td>8</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:0.75rem; font-size:0.82rem; color:#64748b;">
+          Selección final: <strong style="color:#2563eb;">12 features</strong> (reducción del 64.7%)
+        </div>
+      </div>
+
+      <!-- Top features -->
+      <div class="card">
+        <h4 style="margin-bottom:0.75rem; font-size:0.95rem; color:#1e293b;">Top 10 Features por Importancia (Random Forest)</h4>
+        <div class="feat-bar-wrap">
+          <div class="feat-row"><span class="feat-name">q_br_mean</span><div class="feat-track"><div class="feat-fill" style="width:100%"></div></div><span class="feat-val">0.0741</span></div>
+          <div class="feat-row"><span class="feat-name">q_br_std</span><div class="feat-track"><div class="feat-fill" style="width:58%"></div></div><span class="feat-val">0.0436</span></div>
+          <div class="feat-row"><span class="feat-name">dct_h_2</span><div class="feat-track"><div class="feat-fill" style="width:57%"></div></div><span class="feat-val">0.0427</span></div>
+          <div class="feat-row"><span class="feat-name">lbp_8</span><div class="feat-track"><div class="feat-fill" style="width:48%"></div></div><span class="feat-val">0.0361</span></div>
+          <div class="feat-row"><span class="feat-name">dct_h_1</span><div class="feat-track"><div class="feat-fill" style="width:48%"></div></div><span class="feat-val">0.0360</span></div>
+          <div class="feat-row"><span class="feat-name">dct_v_1</span><div class="feat-track"><div class="feat-fill" style="width:48%"></div></div><span class="feat-val">0.0359</span></div>
+          <div class="feat-row"><span class="feat-name">dct_v_3</span><div class="feat-track"><div class="feat-fill" style="width:47%"></div></div><span class="feat-val">0.0350</span></div>
+          <div class="feat-row"><span class="feat-name">dct_v_2</span><div class="feat-track"><div class="feat-fill" style="width:45%"></div></div><span class="feat-val">0.0337</span></div>
+          <div class="feat-row"><span class="feat-name">dct_h_3</span><div class="feat-track"><div class="feat-fill" style="width:43%"></div></div><span class="feat-val">0.0325</span></div>
+          <div class="feat-row"><span class="feat-name">lbp_3</span><div class="feat-track"><div class="feat-fill" style="width:41%"></div></div><span class="feat-val">0.0309</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ RANDOM FOREST ══ -->
+  <section id="random-forest">
+    <div class="section-title">Modelo: Random Forest</div>
+    <div class="model-explain">
+      <div class="card">
+        <span class="status-badge status-done">✓ Implementado y evaluado</span>
+        <h4>¿Qué es Random Forest?</h4>
+        <p>Random Forest es un algoritmo de aprendizaje supervisado basado en <strong>conjuntos de árboles de decisión</strong>. Entrena múltiples árboles de forma independiente, cada uno sobre una muestra aleatoria del dataset y un subconjunto aleatorio de features. La predicción final se obtiene por <strong>votación mayoritaria</strong> entre todos los árboles.</p>
+        <p>Su fortaleza es que reduce el sobreajuste (overfitting) que tienen los árboles individuales, ya que la diversidad entre árboles cancela sus errores individuales.</p>
+        <h4 style="margin-top:0.75rem;">¿Por qué usarlo aquí?</h4>
+        <p>Se usa como <strong>modelo baseline</strong> para establecer un techo de rendimiento sobre las features tabulares extraídas manualmente (DCT, LBP, estadísticas de cuadrante). Si la CNN no supera este baseline, hay un problema.</p>
+      </div>
+      <div class="card">
+        <span class="status-badge status-done">✓ Entrenado (2,000 imágenes de muestra)</span>
+        <h4>Configuración en este proyecto</h4>
+        <ul>
+          <li><strong>n_estimators:</strong> 200 árboles</li>
+          <li><strong>Datos:</strong> 2,000 imágenes (muestra balanceada)</li>
+          <li><strong>Features entrada:</strong> 34 → reducido a 12 tras selección</li>
+          <li><strong>Evaluación:</strong> Cross-Validation 5-fold</li>
+          <li><strong>Escalado:</strong> StandardScaler aplicado antes del entrenamiento</li>
+        </ul>
+        <h4 style="margin-top:0.75rem;">Resultados obtenidos</h4>
+        <ul>
+          <li>34 features: <strong>72.90% ± 0.90%</strong> accuracy (CV)</li>
+          <li>12 features seleccionadas: <strong>73.25% ± 1.27%</strong> accuracy (CV)</li>
+          <li>Feature más importante: <strong>q_br_mean</strong> (cuadrante inferior derecho)</li>
+        </ul>
+        <div style="margin-top:0.75rem; font-size:0.82rem; color:#64748b; background:#f8fafc; border-radius:8px; padding:0.6rem 0.8rem; border:1px solid #e2e8f0;">
+          Limitación: ~73% de accuracy sugiere que las features tabulares no capturan suficiente información espacial. La CNN está diseñada para superar este techo.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ CNN EXPLICACIÓN ══ -->
+  <section id="cnn">
+    <div class="section-title">Modelo: Red Neuronal Convolucional (CNN)</div>
+    <div class="model-explain">
+      <div class="card">
+        <span class="status-badge status-done">✓ Arquitectura implementada en cnn_model.py</span>
+        <h4>¿Qué es una CNN?</h4>
+        <p>Una <strong>Red Neuronal Convolucional (CNN)</strong> es un modelo de deep learning diseñado para procesar datos con estructura espacial como imágenes. En lugar de usar features calculadas manualmente, <strong>aprende automáticamente qué patrones visuales son discriminativos</strong> directamente desde los píxeles.</p>
+        <p>Sus capas de convolución aplican filtros que detectan bordes, texturas y formas a distintas escalas. Las capas más profundas combinan estas detecciones simples en representaciones complejas.</p>
+        <h4 style="margin-top:0.75rem;">¿Por qué es superior a Random Forest aquí?</h4>
+        <p>El análisis EDA demostró que las clases <em>no son linealmente separables</em> en el espacio de features tabulares. La CNN puede aprender la geometría interna de los QR codes — posición de módulos, patrones de detección de posición — que ninguna feature manual captura completamente.</p>
+      </div>
+      <div class="card">
+        <span class="status-badge status-pending">⏳ Entrenamiento pendiente (Fase 2)</span>
+        <h4>Estado de implementación</h4>
+        <ul>
+          <li>✓ Clase <code>QRCNN</code> definida en <strong>cnn_model.py</strong></li>
+          <li>✓ Dataset personalizado <code>QRDataset</code> con augmentación</li>
+          <li>✓ Funciones <code>train_one_epoch()</code> y <code>evaluate()</code></li>
+          <li>✓ Función <code>predict()</code> para inferencia sobre nuevas imágenes</li>
+          <li>✓ Loop de entrenamiento completo en <strong>modelado.ipynb</strong></li>
+          <li>⏳ Ejecución del entrenamiento (requiere GPU)</li>
+          <li>⏳ Checkpoint <code>best_model.pt</code> aún no generado</li>
+        </ul>
+        <h4 style="margin-top:0.75rem;">Ventaja clave del diseño</h4>
+        <p style="font-size:0.86rem; color:#475569;">La combinación de <strong>BatchNormalization</strong> en cada bloque convolucional y <strong>Dropout 0.4</strong> en el clasificador está diseñada para evitar sobreajuste con 140K imágenes de entrenamiento.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ MÉTRICAS BASELINE ══ -->
+  <section id="metricas">
+    <div class="section-title">Métricas — Baseline Tabular (Cross-Validation 5-fold)</div>
+    <div class="metric-compare">
+      <div class="metric-box">
+        <div class="acc">72.90%</div>
+        <div class="std">± 0.90%</div>
+        <div class="desc">34 features completas</div>
+        <div class="tag">Todas las features</div>
+      </div>
+      <div class="metric-box highlight">
+        <div class="acc">73.25%</div>
+        <div class="std">± 1.27%</div>
+        <div class="desc">12 features seleccionadas</div>
+        <div class="tag">✓ Mejor — 64.7% menos features</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem; font-size:0.88rem; color:#475569;">
+      La selección de features reduce la dimensionalidad un <strong>64.7%</strong> manteniendo o mejorando levemente la accuracy.
+      Esto confirma que las 22 features descartadas agregan ruido más que señal.
+      La accuracy del ~73% en features tabulares indica que se requiere aprendizaje espacial (CNN) para superar este techo.
+    </div>
+  </section>
+
+  <!-- ══ CNN ══ -->
+  <section id="arquitectura">
+    <div class="section-title">Arquitectura CNN</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem;">
+
+      <div class="card">
+        <h4 style="margin-bottom:0.75rem; font-size:0.95rem;">Capas del Modelo</h4>
+        <div class="arch-layers">
+          <div class="arch-layer">
+            <span class="layer-badge">INPUT</span>
+            <span class="layer-detail">Imagen en escala de grises 128×128 px (tensor: 1×128×128)</span>
+          </div>
+          <div class="arch-layer">
+            <span class="layer-badge">ConvBlock 1</span>
+            <span class="layer-detail">Conv2d(1→32) + BN + ReLU + MaxPool → 64×64</span>
+          </div>
+          <div class="arch-layer">
+            <span class="layer-badge">ConvBlock 2</span>
+            <span class="layer-detail">Conv2d(32→64) + BN + ReLU + MaxPool → 32×32</span>
+          </div>
+          <div class="arch-layer">
+            <span class="layer-badge">ConvBlock 3</span>
+            <span class="layer-detail">Conv2d(64→128) + BN + ReLU + MaxPool → 16×16</span>
+          </div>
+          <div class="arch-layer">
+            <span class="layer-badge">ConvBlock 4</span>
+            <span class="layer-detail">Conv2d(128→256) + BN + ReLU + MaxPool → 8×8</span>
+          </div>
+          <div class="arch-layer">
+            <span class="layer-badge">Conv Extra</span>
+            <span class="layer-detail">Conv2d(256→256) + BN + ReLU + AdaptiveAvgPool → 4×4</span>
+          </div>
+          <div class="arch-layer">
+            <span class="layer-badge">Classifier</span>
+            <span class="layer-detail">Flatten → FC(4096→512) → Dropout(0.4) → FC(512→128) → FC(128→2)</span>
+          </div>
+          <div class="arch-layer">
+            <span class="layer-badge">OUTPUT</span>
+            <span class="layer-detail">Softmax — 2 clases: benigno / malicioso</span>
+          </div>
+        </div>
+        <div style="font-size:0.83rem; color:#64748b;">Total parámetros entrenables: <strong style="color:#2563eb;">~550,000</strong></div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin-bottom:0.75rem; font-size:0.95rem;">Configuración de Entrenamiento</h4>
+        <div class="config-grid">
+          <div class="config-item"><div class="key">Epochs</div><div class="val">30 (early stopping, patience=7)</div></div>
+          <div class="config-item"><div class="key">Batch size</div><div class="val">64</div></div>
+          <div class="config-item"><div class="key">Learning rate</div><div class="val">1×10⁻³</div></div>
+          <div class="config-item"><div class="key">Optimizer</div><div class="val">AdamW (wd=1×10⁻⁴)</div></div>
+          <div class="config-item"><div class="key">Scheduler</div><div class="val">CosineAnnealingLR</div></div>
+          <div class="config-item"><div class="key">Loss</div><div class="val">CrossEntropyLoss</div></div>
+          <div class="config-item"><div class="key">Regularización</div><div class="val">Dropout 0.4 + BatchNorm</div></div>
+          <div class="config-item"><div class="key">Augmentación</div><div class="val">HFlip, VFlip, Rotación ±10°</div></div>
+          <div class="config-item"><div class="key">Dispositivo</div><div class="val">CUDA / MPS / CPU (auto)</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ ESTADO DEL PROYECTO ══ -->
+  <section id="estado">
+    <div class="section-title">Estado del Proyecto</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem;">
+
+      <div class="card">
+        <h4 style="margin-bottom:0.75rem; font-size:0.95rem; color:#16a34a;">✅ Fase 1 — Completado</h4>
+        <div class="checklist">
+          <div class="check-item"><div class="ck done">✓</div><div class="ck-text"><strong>Preparación de datos</strong><br><span>200K imágenes indexadas, splits 70/15/15% generados</span></div></div>
+          <div class="check-item"><div class="ck done">✓</div><div class="ck-text"><strong>Análisis exploratorio (EDA)</strong><br><span>Balance, dimensiones, tamaño, estadísticas de píxeles, PCA</span></div></div>
+          <div class="check-item"><div class="ck done">✓</div><div class="ck-text"><strong>Ingeniería de features</strong><br><span>34 features extraídas: estadísticas, DCT, LBP, cuadrantes</span></div></div>
+          <div class="check-item"><div class="ck done">✓</div><div class="ck-text"><strong>Selección de features</strong><br><span>12 features óptimas, accuracy 73.25% (CV 5-fold)</span></div></div>
+          <div class="check-item"><div class="ck done">✓</div><div class="ck-text"><strong>Arquitectura CNN diseñada</strong><br><span>4 ConvBlocks, ~550K params, pipeline de augmentación</span></div></div>
+          <div class="check-item"><div class="ck done">✓</div><div class="ck-text"><strong>Pipeline de entrenamiento</strong><br><span>Loop completo con early stopping y métricas implementado</span></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin-bottom:0.75rem; font-size:0.95rem; color:#ca8a04;">⏳ Fase 2 — Pendiente</h4>
+        <div class="checklist">
+          <div class="check-item"><div class="ck pending">⏳</div><div class="ck-text"><strong>Entrenamiento completo de la CNN</strong><br><span>Ejecutar 30 épocas sobre 140K imágenes con GPU</span></div></div>
+          <div class="check-item"><div class="ck pending">⏳</div><div class="ck-text"><strong>Evaluación en conjunto de test</strong><br><span>Accuracy, AUC-ROC, reporte de clasificación sobre 30K imágenes</span></div></div>
+          <div class="check-item"><div class="ck pending">⏳</div><div class="ck-text"><strong>Comparación final de modelos</strong><br><span>Tabular (12 features) vs CNN — análisis de trade-offs</span></div></div>
+          <div class="check-item"><div class="ck pending">⏳</div><div class="ck-text"><strong>Guardado de pesos del modelo</strong><br><span>Checkpoint del mejor epoch para inferencia</span></div></div>
+          <div class="check-item"><div class="ck pending">⏳</div><div class="ck-text"><strong>Pipeline de inferencia</strong><br><span>Función predict() sobre nuevas imágenes QR</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <strong>Universidad del Valle de Guatemala</strong> &nbsp;·&nbsp; Data Security &nbsp;·&nbsp; Fase 1 &nbsp;·&nbsp; Abril 2026<br>
+  Fabiola Contreras (22787) &amp; María Villafuerte (22129)
+</footer>
+
+</body>
+</html>
