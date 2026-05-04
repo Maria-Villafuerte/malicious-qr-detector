@@ -173,6 +173,7 @@ def evaluate(model, loader, criterion, device):
         roc_auc_score(all_labels, all_probs),
         all_preds,
         all_labels,
+        all_probs,
     )
 
 # INFERENCIA EN UNA IMAGEN
